@@ -42,6 +42,19 @@ This repo should grow into a minimal but real LLM Wiki engine:
 5. Promote repeated useful answers into synthesis pages.
 6. Measure knowledge compounding: future tasks should need less raw context and fewer repeated searches.
 
+The system architecture is split into modules in [docs/architecture/overview.md](docs/architecture/overview.md):
+
+- Storage Core
+- Source Ingestion
+- Wiki Compiler
+- Graph and Index
+- Retrieval Engine
+- Memory Writeback
+- Error Book
+- Model Adapters
+- Tool Surfaces
+- Sync and Sharing
+
 ## Distribution Model
 
 The project should spread as a small open-source tool people can own:
@@ -74,11 +87,13 @@ The first public distribution target should be a local MCP server plus a thin CL
 Good early directories:
 
 - `wiki/` for generated and curated pages.
+- `my-wiki/` for the local dogfood personal wiki. It is gitignored by design.
 - `sources/` for ingested raw material or source manifests.
 - `error-book/` for persistent mistakes and correction notes.
 - `mcp/` for the local tool server surface.
 - `skills/` for optional agent skill packaging.
 - `cli/` for local install, ingest, inspect, and maintenance commands.
+- `scripts/` for temporary workflow automation before the TypeScript CLI owns those commands.
 - `src/` for the engine and agent tools.
 - `tests/` for fixtures that prove ingest, linking, retrieval, and correction behavior.
 
@@ -91,6 +106,8 @@ When working in this repo:
 - Prefer changes that make the system more inspectable and measurable.
 - Keep the project installable and useful as a local open-source tool.
 - Do not introduce required network dependencies into core memory operations.
+- Treat `my-wiki/` as local personal memory: read it when useful for this workspace, but do not commit it.
+- Prefer automating repeated manual steps in `scripts/` first, then migrate stable workflows into the CLI.
 - Do not hide important knowledge only in prompts. If it matters later, write it into the wiki or docs.
 - Track uncertainty explicitly. Use "unknown", "inferred", or "needs verification" rather than smoothing over gaps.
 - Add tests around behavior that could silently corrupt memory, links, provenance, or correction history.

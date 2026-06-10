@@ -1,0 +1,15 @@
+# Local personal/team wiki workspaces.
+my-wiki/
+
+# Node/TypeScript local artifacts.
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Rust local artifacts.
+target/
+
+# OS/editor noise.
+.DS_Store
+Thumbs.db
