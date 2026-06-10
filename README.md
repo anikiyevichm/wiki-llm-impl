@@ -1,8 +1,10 @@
 # wiki-llm-impl
 
-A minimal implementation of the LLM Wiki idea: compile knowledge into a durable, inspectable, interlinked wiki that an LLM agent can search, read, traverse, correct, and improve over time.
+A minimal implementation inspired by Andrej Karpathy's LLM Wiki idea: compile knowledge into a durable, inspectable, interlinked wiki that an LLM agent can search, read, traverse, correct, and improve over time.
 
 The project is designed to be open-source, local-first, and offline-capable: a portable wiki memory body that can run as a local MCP server, skill, CLI, or library for any agent and any LLM.
+
+The core loop keeps raw sources immutable, lets agents maintain generated Markdown wiki pages, and records navigation through a simple index, append-only log, provenance, corrections, and synthesis writebacks.
 
 Start with [AGENTS.md](AGENTS.md) for the project soul, source notes, and first milestone.
 
@@ -11,3 +13,5 @@ Architecture starts in [docs/architecture/overview.md](docs/architecture/overvie
 Technology choices are documented in [docs/architecture/technology.md](docs/architecture/technology.md).
 
 Local dogfood automation starts in [docs/automation.md](docs/automation.md). The `my-wiki/` workspace is intentionally gitignored because it can contain personal memory.
+
+Implementation starts with Storage Core and CLI parity: `wiki-llm init`, `wiki-llm check`, and `wiki-llm new-page`.

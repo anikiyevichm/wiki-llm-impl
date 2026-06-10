@@ -2,7 +2,7 @@
 
 ## Project North Star
 
-We are building an implementation of the LLM Wiki idea associated with Andrej Karpathy's 2026 wiki-memory direction: an agent should not treat knowledge as disposable prompt stuffing or flat RAG chunks. It should compile knowledge into a durable, inspectable, interlinked wiki that improves with use.
+We are building an implementation inspired by Andrej Karpathy's April 2026 LLM Wiki idea file: an agent should not treat knowledge as disposable prompt stuffing or flat RAG chunks. It should compile knowledge into a durable, inspectable, interlinked wiki that improves with use.
 
 The project is a bet that tokens spent on understanding can become capital. Each useful ingest, answer, correction, and link should make future reasoning cheaper, more grounded, and easier to audit.
 
@@ -13,6 +13,7 @@ This is an open-source, local-first project. It should be installable on any per
 The core pattern is:
 
 - Documents and conversations become structured wiki pages, not anonymous embedding chunks.
+- Raw sources remain immutable source material. The wiki can summarize, cite, and reinterpret them, but normal maintenance should not rewrite the original evidence.
 - Pages link to each other bidirectionally so agents can traverse knowledge instead of only retrieving top-k snippets.
 - Retrieval is a reasoning loop: search, read, follow links, decide whether evidence is sufficient, then answer.
 - The wiki evolves: good answers can become synthesis pages, external findings can be written back into entity pages, and mistakes can be captured in an error book.
@@ -20,7 +21,7 @@ The core pattern is:
 
 ## Source Notes
 
-- Karpathy's LLM Wiki paradigm is described by follow-on work as a 2026 proposal for persistent, structured knowledge layers that break the assumption that every task has independent context cost.
+- Karpathy's LLM Wiki idea file describes a persistent, structured knowledge layer that breaks the assumption that every task has independent context cost.
 - "Knowledge Compounding" frames the economic point: INGEST can be amortized across many future retrievals, high-value answers can feed back into synthesis pages, and external search can be written back into entity pages.
 - "Retrieval as Reasoning" gives an implementation-shaped formulation: compile documents into structured pages with bidirectional links, expose search/read/link-following tools, and keep an Error Book for semantic and structural self-correction.
 - "Memory as Metabolism" emphasizes the personal/companion version: memory should mirror the user's working vocabulary and structure while compensating for epistemic failure modes such as entrenchment and suppressed contradictory evidence.
@@ -70,25 +71,31 @@ The project should spread as a small open-source tool people can own:
 ## Non-Negotiable Design Principles
 
 - Inspectability over magic. The wiki should be readable by a human without needing the model's hidden state.
+- Source integrity over convenience. Raw sources are the evidence layer; generated pages, summaries, and synthesis must point back to them rather than silently replacing them.
 - Structure over blobs. Prefer pages, sections, claims, links, citations, and corrections over opaque text dumps.
 - Provenance by default. Every durable claim should know where it came from or admit that it is inferred.
 - Corrections are first-class. The system should remember how it was wrong, not only what it thinks is right now.
 - Retrieval is interactive. The agent should be able to traverse, compare, and stop when evidence is enough.
 - Offline ownership over cloud dependency. The wiki must remain useful without network access and without a hosted account.
 - Interoperability over lock-in. Any agent should be able to call the same local tools and read the same wiki files.
+- Human direction, agent maintenance. Humans curate sources, ask questions, review important changes, and make judgment calls; agents do the filing, linking, bookkeeping, consistency checks, and routine updates.
 - Small core, sharp edges. Build the minimal engine that proves the loop before adding platform complexity.
 
 ## Current Implementation Bias
 
-Start with a local-first, file-backed prototype unless the codebase clearly evolves elsewhere. Markdown pages plus machine-readable frontmatter are enough for the first version. A simple index can come before embeddings; graph links and provenance matter more than fancy retrieval on day one.
+Start with a local-first, file-backed prototype unless the codebase clearly evolves elsewhere. Markdown pages plus sidecar machine-readable metadata are enough for the first version. A simple `index.md` plus append-only `log.md` can come before embeddings; graph links and provenance matter more than fancy retrieval on day one.
 
 The first public distribution target should be a local MCP server plus a thin CLI. A skill wrapper can come with it so agents that understand skills can load the project as a body of behavior, while agents that understand MCP can call it as a tool server.
+
+The wiki should also be pleasant to inspect with ordinary Markdown tools. Obsidian is a good dogfood viewer for links and graph shape, but it must remain optional rather than a runtime dependency.
 
 Good early directories:
 
 - `wiki/` for generated and curated pages.
 - `my-wiki/` for the local dogfood personal wiki. It is gitignored by design.
 - `sources/` for ingested raw material or source manifests.
+- `wiki/index.md` for a content-oriented catalog of pages, summaries, categories, and source counts.
+- `wiki/log.md` for an append-only chronological record of ingests, queries, lint passes, corrections, and synthesis writebacks.
 - `error-book/` for persistent mistakes and correction notes.
 - `mcp/` for the local tool server surface.
 - `skills/` for optional agent skill packaging.
