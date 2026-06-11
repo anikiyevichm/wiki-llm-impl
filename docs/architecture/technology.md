@@ -6,8 +6,8 @@ The first implementation should be boring, local, and easy to install:
 
 - Language: Node.js 22+ with TypeScript for the core engine, CLI, deterministic tests, and first MCP server.
 - Storage: ordinary files plus SQLite generated indexes.
-- Wiki pages: Markdown with JSON frontmatter for strict parsing through the built-in JSON runtime.
-- Durable metadata: JSON files with explicit schema versions.
+- Wiki pages: Obsidian-compatible Markdown with small YAML-style Properties frontmatter.
+- Durable metadata: sidecar `.meta.json` files with explicit schema versions and strict machine fields.
 - Search: SQLite FTS5 when available, with a plain JSON lexical fallback.
 - Tool protocol: local MCP over stdio JSON-RPC, implemented thinly over the core library.
 - Packaging: `package.json` with optional packages for model providers and richer parsers.
@@ -31,7 +31,7 @@ The TypeScript core should define contracts cleanly enough that Rust can replace
 
 | Module | First technology | Later options |
 | --- | --- | --- |
-| Storage Core | Node `fs/promises`, JSON parsing, atomic file writes, Markdown + JSON frontmatter | Rust file core, file locks, content-addressed blobs |
+| Storage Core | Node `fs/promises`, JSON parsing, atomic file writes, Markdown + sidecar `.meta.json` | Rust file core, file locks, content-addressed blobs |
 | Source Ingestion | TypeScript parsers for `.txt`, `.md`, JSON conversation exports | PDF/docx/html parser plugins, Rust parsers |
 | Wiki Compiler | Deterministic compiler plus adapter-based LLM extraction | Local grammar repair, stronger entity resolution |
 | Graph and Index | SQLite FTS5, JSON graph/backlinks fallback | Rust/Tantivy/LanceDB/embeddings as optional indexes |
@@ -42,14 +42,27 @@ The TypeScript core should define contracts cleanly enough that Rust can replace
 | Tool Surfaces | Node CLI, stdio MCP JSON-RPC | SDK-based MCP server, desktop tray, web UI |
 | Sync and Sharing | Zip/tar bundles, JSON privacy manifests | Git-backed sync, Rust conflict tooling |
 
-## Frontmatter Decision
+## Page Format Decision
 
-Use JSON frontmatter for version one:
+Use Obsidian-compatible Markdown plus sidecar metadata for version one:
 
 ```markdown
 ---
+id: page_synthesis_example
+type: synthesis
+title: Example
+status: draft
+confidence: medium
+---
+
+# Example
+```
+
+The sibling `example.meta.json` holds strict machine metadata:
+
+```json
 {
-  "id": "page_...",
+  "id": "page_synthesis_example",
   "type": "synthesis",
   "title": "Example",
   "created_at": "2026-06-10T00:00:00Z",
@@ -59,12 +72,9 @@ Use JSON frontmatter for version one:
   "sources": [],
   "links": []
 }
----
-
-# Example
 ```
 
-JSON is less pleasant than YAML for humans, but it avoids a required YAML dependency and makes strict validation easier. A later version can support YAML as an import/export format.
+This keeps pages pleasant in Obsidian while preserving strict JSON contracts for the engine.
 
 ## Offline Policy
 
@@ -92,4 +102,6 @@ Start by scaffolding the TypeScript package:
 - `src/mcp/` as an empty boundary for the local MCP server
 - `tests/` with Vitest fixtures for `my-wiki`-style pages
 
-The first code milestone is Storage Core plus CLI parity with the temporary scripts in `scripts/`.
+The first code milestone is Storage Core plus CLI parity with the temporary scripts in `scripts/`, using `.md` pages plus `.meta.json` sidecars.
+
+After that, introduce the orchestration service as a thin coordinator over existing core services rather than as a separate source of truth.

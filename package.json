@@ -1,0 +1,29 @@
+{
+  "name": "wiki-llm-impl",
+  "version": "0.1.0",
+  "description": "Local-first LLM Wiki engine with TypeScript core, CLI, and MCP surface.",
+  "type": "module",
+  "bin": {
+    "wiki-llm": "./dist/cli/index.js",
+    "wiki-llm-mcp": "./dist/mcp/server.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "mcp": "node dist/mcp/server.js",
+    "smoke:mcp": "node scripts/smoke-mcp.mjs",
+    "test": "vitest run",
+    "check": "npm run build && npm test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.8"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  }
+}

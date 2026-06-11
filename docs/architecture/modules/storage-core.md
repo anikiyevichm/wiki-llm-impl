@@ -7,7 +7,8 @@ Own the portable wiki folder format. Storage Core is the lowest layer: it reads 
 ## Technology Choices
 
 - TypeScript core module using Node `fs/promises`, `path`, `crypto`, temporary files, and atomic replace writes.
-- Markdown files with JSON frontmatter for pages.
+- Markdown files with small Obsidian-compatible Properties frontmatter for pages.
+- Sidecar `.meta.json` files for strict page metadata, links, sources, and future claims.
 - JSON metadata for config, source manifests, run logs, and schema versioning.
 - Generated SQLite/JSON indexes live outside durable page files and can be rebuilt.
 - Rust can later replace low-level file and locking primitives behind the same TypeScript API.
@@ -16,7 +17,7 @@ Own the portable wiki folder format. Storage Core is the lowest layer: it reads 
 
 - Initialize a `.wiki-llm/` workspace.
 - Allocate stable IDs for pages, sources, claims, runs, and error entries.
-- Read and write Markdown pages with structured frontmatter.
+- Read and write Markdown pages plus sidecar metadata.
 - Read and write JSON metadata files and generated indexes.
 - Validate folder structure and required metadata fields.
 - Provide migrations when the on-disk schema changes.
@@ -40,7 +41,7 @@ Own the portable wiki folder format. Storage Core is the lowest layer: it reads 
 Core entities:
 
 - `WorkspaceConfig`: schema version, wiki title, default language, privacy mode.
-- `Page`: id, type, title, body, frontmatter, source refs, status.
+- `Page`: id, type, title, body, metadata path, source refs, status.
 - `SourceManifest`: id, origin, media type, checksum, raw path, extracted spans.
 - `Claim`: id, page id, text, citations, confidence, status.
 - `RunLog`: operation type, inputs, outputs, warnings, timestamps.
@@ -49,7 +50,7 @@ Core entities:
 
 1. Define folder layout and schema version.
 2. Implement workspace initialization.
-3. Implement Markdown frontmatter parsing and writing.
+3. Implement Markdown Properties parsing/writing and sidecar metadata parsing/writing.
 4. Implement ID generation and checksum helpers.
 5. Implement validation for required fields and broken local paths.
 6. Implement schema migration skeleton.
@@ -57,13 +58,13 @@ Core entities:
 ## Tests
 
 - Creates a workspace from scratch.
-- Writes and reads a page without losing frontmatter.
+- Writes and reads a page without losing Obsidian Properties or sidecar metadata.
 - Rejects pages without required IDs or types.
 - Rebuildable indexes are not treated as durable sources.
 - Migration tests keep older fixture workspaces readable.
 
 ## Risks
 
-- Loose frontmatter can silently corrupt memory. Use strict validation at write time.
+- Loose frontmatter can silently confuse human tools. Use sidecar metadata as the strict engine contract.
 - Generated files can be mistaken for user knowledge. Keep clear folder boundaries.
 - File locking matters for concurrent agents. Start simple, then add lock files around writes.

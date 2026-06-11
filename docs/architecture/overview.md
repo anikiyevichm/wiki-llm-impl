@@ -6,7 +6,7 @@
 
 The system is not a hosted knowledge service. It is a portable memory body: ordinary files plus local indexes plus tool surfaces such as MCP, CLI, and optional skill wrappers.
 
-Technology choices are tracked in [technology.md](technology.md). The short version: TypeScript-first on Node.js 22+, Markdown pages with JSON frontmatter, generated SQLite/JSON indexes, stdio MCP, optional model/provider adapters, and Rust later for hot paths or single-binary distribution.
+Technology choices are tracked in [technology.md](technology.md). The short version: TypeScript-first on Node.js 22+, Obsidian-compatible Markdown pages with sidecar `.meta.json` metadata, generated SQLite/JSON indexes, stdio MCP, optional model/provider adapters, and Rust later for hot paths or single-binary distribution.
 
 ## System Loop
 
@@ -33,11 +33,19 @@ Technology choices are tracked in [technology.md](technology.md). The short vers
 | Tool Surfaces | Expose the engine through local MCP, CLI, library APIs, and optional skills. | [tool-surfaces.md](modules/tool-surfaces.md) |
 | Sync and Sharing | Support backup, sync, export, import, and optional shared local/team wikis. | [sync-sharing.md](modules/sync-sharing.md) |
 
+## Extension Domains
+
+Some product layers should compose the core engine rather than become part of the core memory substrate.
+
+| Domain | Purpose | Plan |
+| --- | --- | --- |
+| Adaptive Learning Layer | Use the wiki as durable learning memory for Chloe, a personal tutor agent with a learning-engine MCP, scheduler, and optional Telegram connector. | [../learning/overview.md](../learning/overview.md) |
+
 ## First Vertical Slice
 
 The first implementation should avoid building every module fully. Build a thin path through the whole loop:
 
-1. `storage-core`: create a wiki workspace and read/write Markdown pages with frontmatter.
+1. `storage-core`: create a wiki workspace and read/write Markdown pages plus sidecar metadata.
 2. `source-ingestion`: ingest local Markdown or plain text files into source records.
 3. `wiki-compiler`: produce one page per source plus extracted links and claims.
 4. `graph-index`: build a simple JSON index and backlinks file.
@@ -45,6 +53,17 @@ The first implementation should avoid building every module fully. Build a thin 
 6. `memory-writeback`: write one synthesis page after an answer.
 7. `error-book`: write one correction/failure record.
 8. `tool-surfaces`: expose the above through CLI first, then MCP.
+
+## Build Order
+
+Start with Storage Core before building an orchestration service. The orchestrator should compose stable local tools, not invent storage behavior itself.
+
+Initial order:
+
+1. Storage Core service: workspace init, page IO, metadata validation, workspace checks.
+2. CLI parity: `wiki-llm init`, `wiki-llm check`, `wiki-llm new-page`.
+3. Read-only retrieval primitives: list pages, read page, lexical search.
+4. Orchestration service: coordinate ingest, compile, index, retrieve, writeback, and error-book flows.
 
 ## Data Folder Shape
 
@@ -75,7 +94,7 @@ The exact paths can evolve, but the invariant is stable: user knowledge is ordin
 
 ## Shared Contracts
 
-Every durable page should have frontmatter fields similar to this JSON object:
+Every durable page should have sidecar metadata fields similar to this JSON object:
 
 ```json
 {
@@ -99,21 +118,17 @@ Every durable page should have frontmatter fields similar to this JSON object:
 }
 ```
 
-Embedded in Markdown as JSON frontmatter:
+Stored next to the Markdown page as `page-name.meta.json`.
+
+The Markdown file keeps small Obsidian-friendly Properties frontmatter:
 
 ```markdown
 ---
-{
-  "id": "page_...",
-  "type": "synthesis",
-  "title": "Human Readable Title",
-  "created_at": "2026-06-10T00:00:00Z",
-  "updated_at": "2026-06-10T00:00:00Z",
-  "sources": [],
-  "confidence": "medium",
-  "status": "draft",
-  "links": []
-}
+id: page_...
+type: synthesis
+title: Human Readable Title
+status: draft
+confidence: medium
 ---
 
 # Human Readable Title
@@ -145,5 +160,5 @@ Claims should be addressable and cite sources:
 
 - How much model output should be accepted before validation and repair?
 - How should shared wikis represent conflicts and authorship?
-- Should JSON frontmatter stay permanent, or should YAML become an optional human-facing format later?
+- How much metadata should be duplicated into Obsidian Properties versus kept only in `.meta.json`?
 - Which optional parser plugins are worth supporting first after `.txt`, `.md`, and JSON conversation exports?

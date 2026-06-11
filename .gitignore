@@ -1,5 +1,6 @@
 # Local personal/team wiki workspaces.
 my-wiki/
+.obsidian/
 
 # Node/TypeScript local artifacts.
 node_modules/

@@ -6,7 +6,7 @@ Make mistakes durable and useful. The Error Book stores failed retrievals, wrong
 
 ## Technology Choices
 
-- Markdown plus JSON frontmatter entries under `error-book/entries/`.
+- Markdown entries plus sidecar JSON metadata under `error-book/entries/`.
 - JSON issue index generated from entries for filtering and reports.
 - Error entries link to page IDs, claim IDs, source spans, and run IDs.
 - Repair proposals reuse Memory Writeback proposal format.
