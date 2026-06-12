@@ -49,4 +49,29 @@ if (-not (Test-Path -LiteralPath $configPath)) {
   $config | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
 }
 
+$indexPath = Join-Path $WikiPath "index.md"
+if (-not (Test-Path -LiteralPath $indexPath)) {
+  @"
+# Wiki Index
+
+Content-oriented catalog for $Title.
+
+No pages yet.
+"@ | Set-Content -LiteralPath $indexPath -Encoding UTF8
+}
+
+$logPath = Join-Path $WikiPath "log.md"
+if (-not (Test-Path -LiteralPath $logPath)) {
+  $today = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
+  @"
+# Wiki Log
+
+Append-only chronological record of local wiki operations.
+
+## [$today] init | $Title
+
+- Workspace initialized.
+"@ | Set-Content -LiteralPath $logPath -Encoding UTF8
+}
+
 Write-Host "Initialized wiki workspace at $WikiPath"

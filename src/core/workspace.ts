@@ -64,9 +64,11 @@ export async function initWorkspace(options: InitWorkspaceOptions): Promise<Work
 
   try {
     const existing = await readJson<WorkspaceConfig>(configPath);
+    await ensureWorkspaceCatalogFiles(wikiPath, existing.title, now);
     return existing;
   } catch {
     await writeJsonAtomic(configPath, config);
+    await ensureWorkspaceCatalogFiles(wikiPath, config.title, now);
     return config;
   }
 }
@@ -107,6 +109,7 @@ export async function createPage(options: NewPageOptions): Promise<string> {
     metadata,
     body: `# ${options.title}\n\n## Notes\n\n- TODO\n`,
   });
+  await rebuildWikiIndex(options.wikiPath);
 
   return filePath;
 }
@@ -190,6 +193,78 @@ export async function searchPages(options: SearchPagesOptions): Promise<SearchRe
   }
 
   const terms = query.split(/\s+/u).filter((term) => term.length > 0);
+  const searchOptions = {
+    wikiPath: resolvedWikiPath,
+    terms,
+    ...(options.limit === undefined ? {} : { limit: options.limit }),
+  };
+  const indexResults = await searchIndex(searchOptions);
+
+  if (indexResults.length > 0) {
+    return indexResults;
+  }
+
+  return searchPageBodies(searchOptions);
+}
+
+export async function rebuildWikiIndex(wikiPath: string): Promise<string> {
+  const resolvedWikiPath = path.resolve(wikiPath);
+  const pagePaths = await listMarkdownFiles(path.join(resolvedWikiPath, "pages"));
+  const groups = new Map<string, Array<{ summary: PageSummary; excerpt: string }>>();
+
+  for (const pagePath of pagePaths) {
+    const page = await readPage(pagePath);
+    const summary = toPageSummary(resolvedWikiPath, pagePath, page.metadata);
+    const entries = groups.get(summary.type) ?? [];
+    entries.push({
+      summary,
+      excerpt: summarizeBody(page.body),
+    });
+    groups.set(summary.type, entries);
+  }
+
+  const lines = [
+    "# Wiki Index",
+    "",
+    "Content-oriented catalog of local wiki pages. Rebuild with `wiki-llm rebuild-index`.",
+    "",
+  ];
+  const groupOrder = ["entity", "source", "synthesis", "correction"];
+
+  for (const group of groupOrder) {
+    const entries = groups.get(group) ?? [];
+    if (entries.length === 0) {
+      continue;
+    }
+
+    lines.push(`## ${titleCase(group)}`, "");
+    for (const entry of entries.sort((a, b) => a.summary.title.localeCompare(b.summary.title))) {
+      const metadata = [
+        `status: ${entry.summary.status}`,
+        `confidence: ${entry.summary.confidence}`,
+        `updated: ${entry.summary.updated_at}`,
+      ].join("; ");
+      const excerpt = entry.excerpt.length > 0 ? ` - ${entry.excerpt}` : "";
+      lines.push(`- [${escapeMarkdownLinkText(entry.summary.title)}](${entry.summary.path}) - ${metadata}${excerpt}`);
+    }
+    lines.push("");
+  }
+
+  if (pagePaths.length === 0) {
+    lines.push("No pages yet.", "");
+  }
+
+  const indexPath = path.join(resolvedWikiPath, "index.md");
+  await writeFileAtomic(indexPath, `${lines.join("\n").trimEnd()}\n`);
+  return indexPath;
+}
+
+async function searchPageBodies(options: {
+  wikiPath: string;
+  terms: string[];
+  limit?: number;
+}): Promise<SearchResult[]> {
+  const resolvedWikiPath = path.resolve(options.wikiPath);
   const pagePaths = await listMarkdownFiles(path.join(resolvedWikiPath, "pages"));
   const results: SearchResult[] = [];
 
@@ -203,7 +278,7 @@ export async function searchPages(options: SearchPagesOptions): Promise<SearchRe
       page.body,
     ].join("\n");
     const searchable = haystack.toLowerCase();
-    const score = terms.reduce((total, term) => {
+    const score = options.terms.reduce((total, term) => {
       const titleScore = page.metadata.title.toLowerCase().includes(term) ? 5 : 0;
       const bodyMatches = countOccurrences(searchable, term);
       return total + titleScore + bodyMatches;
@@ -213,7 +288,7 @@ export async function searchPages(options: SearchPagesOptions): Promise<SearchRe
       results.push({
         ...toPageSummary(resolvedWikiPath, pagePath, page.metadata),
         score,
-        snippet: makeSnippet(page.body, terms),
+        snippet: makeSnippet(page.body, options.terms),
       });
     }
   }
@@ -246,6 +321,7 @@ export async function appendSection(options: AppendSectionOptions): Promise<stri
   page.body = nextBody;
   page.metadata.updated_at = nowIso();
   await writePage(pagePath, page);
+  await rebuildWikiIndex(options.wikiPath);
 
   return pagePath;
 }
@@ -281,6 +357,7 @@ export async function linkPage(options: LinkPageOptions): Promise<string> {
 
   fromPage.metadata.updated_at = nowIso();
   await writePage(fromPath, fromPage);
+  await rebuildWikiIndex(options.wikiPath);
 
   return fromPath;
 }
@@ -302,6 +379,7 @@ export async function addSourceRef(options: AddSourceRefOptions): Promise<string
 
   page.metadata.updated_at = nowIso();
   await writePage(pagePath, page);
+  await rebuildWikiIndex(options.wikiPath);
   return pagePath;
 }
 
@@ -507,6 +585,116 @@ function makeSnippet(body: string, terms: string[]): string {
   const prefix = start > 0 ? "..." : "";
   const suffix = end < normalized.length ? "..." : "";
   return `${prefix}${normalized.slice(start, end)}${suffix}`;
+}
+
+async function ensureWorkspaceCatalogFiles(wikiPath: string, title: string, timestamp: string): Promise<void> {
+  const indexPath = path.join(wikiPath, "index.md");
+  const logPath = path.join(wikiPath, "log.md");
+
+  if (!(await pathExists(indexPath))) {
+    await writeFileAtomic(
+      indexPath,
+      [
+        "# Wiki Index",
+        "",
+        `Content-oriented catalog for ${title}.`,
+        "",
+        "No pages yet.",
+        "",
+      ].join("\n"),
+    );
+  }
+
+  if (!(await pathExists(logPath))) {
+    await writeFileAtomic(
+      logPath,
+      [
+        "# Wiki Log",
+        "",
+        "Append-only chronological record of local wiki operations.",
+        "",
+        `## [${timestamp.slice(0, 10)}] init | ${title}`,
+        "",
+        "- Workspace initialized.",
+        "",
+      ].join("\n"),
+    );
+  }
+}
+
+async function searchIndex(options: {
+  wikiPath: string;
+  terms: string[];
+  limit?: number;
+}): Promise<SearchResult[]> {
+  const indexPath = path.join(options.wikiPath, "index.md");
+  let indexMarkdown: string;
+  try {
+    indexMarkdown = await readFile(indexPath, "utf8");
+  } catch {
+    return [];
+  }
+
+  const results: SearchResult[] = [];
+  const seenPaths = new Set<string>();
+  const linkPattern = /\[([^\]]+)\]\((pages\/[^)]+\.md)\)/u;
+
+  for (const line of indexMarkdown.split(/\r?\n/u)) {
+    const match = linkPattern.exec(line);
+    if (!match) {
+      continue;
+    }
+
+    const [, , page] = match;
+    if (!page || seenPaths.has(page)) {
+      continue;
+    }
+
+    const searchable = line.toLowerCase();
+    const score = options.terms.reduce((total, term) => {
+      const titleScore = searchable.includes(`[${term}`) ? 5 : 0;
+      return total + titleScore + countOccurrences(searchable, term);
+    }, 0);
+    if (score <= 0) {
+      continue;
+    }
+
+    try {
+      const pagePath = resolvePagePath(options.wikiPath, page);
+      const wikiPage = await readPage(pagePath);
+      seenPaths.add(page);
+      results.push({
+        ...toPageSummary(options.wikiPath, pagePath, wikiPage.metadata),
+        score,
+        snippet: makeSnippet(line.replace(/^\s*-\s*/u, ""), options.terms),
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  return results.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path)).slice(0, options.limit ?? 10);
+}
+
+function summarizeBody(body: string): string {
+  const contentLines = body
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#") && line !== "- TODO");
+  const summary = contentLines.join(" ").replace(/\s+/gu, " ").trim();
+  if (summary.length <= 160) {
+    return summary;
+  }
+  return `${summary.slice(0, 157).trimEnd()}...`;
+}
+
+function titleCase(value: string): string {
+  return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
+}
+
+function escapeMarkdownLinkText(value: string): string {
+  return value.replace(/\\/gu, "\\\\").replace(/\]/gu, "\\]");
 }
 
 async function readJson<T>(filePath: string): Promise<T> {

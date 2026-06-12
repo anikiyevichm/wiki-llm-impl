@@ -9,6 +9,7 @@ import {
   linkPage,
   listPages,
   readWikiPage,
+  rebuildWikiIndex,
   searchPages,
   seedProject,
 } from "../core/index.js";
@@ -79,6 +80,12 @@ async function main(argv: string[]): Promise<void> {
         ...(limit === undefined ? {} : { limit }),
       });
       console.log(JSON.stringify(results, null, 2));
+      return;
+    }
+
+    case "rebuild-index": {
+      const indexPath = await rebuildWikiIndex(flags.path ?? "my-wiki");
+      console.log(`Rebuilt index at ${indexPath}`);
       return;
     }
 
@@ -331,6 +338,7 @@ Commands:
   list-pages --path <wikiPath>
   read-page --path <wikiPath> --page <page.md>
   search --path <wikiPath> --query <query> [--limit 10]
+  rebuild-index --path <wikiPath>
   new-page --path <wikiPath> --title <title> [--type synthesis] [--folder pages/synthesis]
   append-section --path <wikiPath> --page <pages/.../page.md> --heading <heading> --content <markdown>
   append-section --path <wikiPath> --page <pages/.../page.md> --heading <heading> --content-file <file> [--mode replace|append] [--level 2]

@@ -11,6 +11,7 @@ import {
   linkPage,
   listPages,
   readWikiPage,
+  rebuildWikiIndex,
   searchPages,
   seedProject,
 } from "../src/core/workspace.js";
@@ -31,9 +32,13 @@ describe("workspace", () => {
     await createPage({ wikiPath: tempRoot, title: "First Page" });
 
     const result = await checkWorkspace(tempRoot);
+    const index = await readFile(path.join(tempRoot, "index.md"), "utf8");
+    const log = await readFile(path.join(tempRoot, "log.md"), "utf8");
 
     expect(result.ok).toBe(true);
     expect(result.pageCount).toBe(1);
+    expect(index).toContain("[First Page](pages/synthesis/first-page.md)");
+    expect(log).toContain("# Wiki Log");
   });
 
   it("creates a page with Obsidian properties and sidecar metadata", async () => {
@@ -77,6 +82,10 @@ describe("workspace", () => {
     expect(content).toContain("## Automation");
     expect(content).toContain("- Replaced version");
     expect(content).not.toContain("- First version");
+
+    const index = await readFile(path.join(tempRoot, "index.md"), "utf8");
+    expect(index).toContain("[Working Style](pages/synthesis/working-style.md)");
+    expect(index).toContain("- Replaced version");
   });
 
   it("appends to an existing markdown section and touches metadata", async () => {
@@ -198,6 +207,26 @@ describe("workspace", () => {
     expect(metadata.sources).toEqual([{ source_id: "source_gonka_ai_research_2026_06_11" }]);
   });
 
+  it("rebuilds a content-oriented wiki index", async () => {
+    await initWorkspace({ wikiPath: tempRoot });
+    await createPage({
+      wikiPath: tempRoot,
+      title: "Mikita",
+      type: "entity",
+      folder: "pages/person",
+      status: "active",
+      confidence: "medium",
+    });
+
+    const indexPath = await rebuildWikiIndex(tempRoot);
+    const index = await readFile(indexPath, "utf8");
+
+    expect(index).toContain("## Entity");
+    expect(index).toContain("[Mikita](pages/person/mikita.md)");
+    expect(index).toContain("status: active");
+    expect(index).toContain("confidence: medium");
+  });
+
   it("lists, reads, and searches wiki pages", async () => {
     await initWorkspace({ wikiPath: tempRoot });
     await createPage({ wikiPath: tempRoot, title: "Gonka24", type: "entity", folder: "pages/project" });
@@ -217,5 +246,22 @@ describe("workspace", () => {
     expect(page.body).toContain("Business Thesis");
     expect(results[0]?.title).toBe("Gonka24");
     expect(results[0]?.snippet).toContain("OpenRouter");
+  });
+
+  it("falls back to page body search when the wiki index has no match", async () => {
+    await initWorkspace({ wikiPath: tempRoot });
+    await createPage({ wikiPath: tempRoot, title: "Fallback Search", type: "entity", folder: "pages/project" });
+    await appendSection({
+      wikiPath: tempRoot,
+      page: "pages/project/fallback-search.md",
+      heading: "Hidden Detail",
+      content: "This body contains a zephyr-only retrieval marker.",
+    });
+    await writeFile(path.join(tempRoot, "index.md"), "# Wiki Index\n\nNo matching catalog entries.\n", "utf8");
+
+    const results = await searchPages({ wikiPath: tempRoot, query: "zephyr-only" });
+
+    expect(results[0]?.title).toBe("Fallback Search");
+    expect(results[0]?.snippet).toContain("zephyr-only");
   });
 });

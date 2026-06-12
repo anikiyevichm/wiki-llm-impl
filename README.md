@@ -16,6 +16,6 @@ Adaptive learning agent plans live in [docs/learning/overview.md](docs/learning/
 
 Local dogfood automation starts in [docs/automation.md](docs/automation.md). The `my-wiki/` workspace is intentionally gitignored because it can contain personal memory.
 
-Implementation starts with Storage Core and CLI parity: `wiki-llm init`, `wiki-llm check`, and `wiki-llm new-page`.
+Implementation starts with Storage Core and CLI parity: `wiki-llm init`, `wiki-llm check`, `wiki-llm new-page`, and an index-first search flow over `index.md`.
 
 Local MCP setup is documented in [docs/mcp.md](docs/mcp.md).
